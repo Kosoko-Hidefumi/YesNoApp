@@ -29,6 +29,24 @@ function detectMime(file) {
   return "";
 }
 
+function blobAuthOptions(mime) {
+  const opts = { access: "public", contentType: mime };
+  const rw = process.env.BLOB_READ_WRITE_TOKEN;
+  const storeId = process.env.BLOB_STORE_ID;
+  const oidc = process.env.VERCEL_OIDC_TOKEN;
+
+  if (rw) {
+    opts.token = rw;
+    return opts;
+  }
+  if (storeId && oidc) {
+    opts.storeId = storeId;
+    opts.oidcToken = oidc;
+    return opts;
+  }
+  return null;
+}
+
 export default {
   async OPTIONS() {
     return new Response(null, { status: 204, headers: cors });
@@ -45,10 +63,13 @@ export default {
       if (!ALLOWED.has(mime)) {
         return json({ error: "画像ファイル（JPEG/PNG/GIF/WebP）を選んでください" }, 400);
       }
-      const blob = await put(`uploads/${randomUUID()}${EXT[mime]}`, file, {
-        access: "public",
-        contentType: mime,
-      });
+      const auth = blobAuthOptions(mime);
+      if (!auth) {
+        return json({
+          error: "Blobの認証設定がありません。Vercelの Storage → Blobストア → Quickstart → .env.local から BLOB_READ_WRITE_TOKEN をコピーし、Settings → Environment Variables に追加して再デプロイしてください。",
+        }, 500);
+      }
+      const blob = await put(`uploads/${randomUUID()}${EXT[mime]}`, file, auth);
       return json({ url: blob.url });
     } catch (error) {
       console.error("Upload error:", error);
