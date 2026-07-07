@@ -1,4 +1,4 @@
-import { put, head } from "@vercel/blob";
+import { put, get } from "@vercel/blob";
 import { randomUUID } from "crypto";
 
 const cors = {
@@ -37,10 +37,11 @@ export default {
     const auth = blobAuth();
     if (!auth) return json({ error: "Blobの認証設定がありません" }, 500);
     try {
-      const meta = await head(`shares/${id}.json`, auth);
-      const res = await fetch(meta.url);
-      if (!res.ok) return json({ error: "設定の読み込みに失敗しました" }, 500);
-      const cfg = await res.json();
+      const result = await get(`shares/${id}.json`, { ...auth, access: "public" });
+      if (!result || result.statusCode !== 200 || !result.stream) {
+        return json({ error: "リンクが見つかりません" }, 404);
+      }
+      const cfg = JSON.parse(await new Response(result.stream).text());
       if (!isValidConfig(cfg)) return json({ error: "設定が不正です" }, 500);
       return json(cfg);
     } catch (error) {
