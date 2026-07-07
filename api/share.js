@@ -1,4 +1,4 @@
-import { put, get } from "@vercel/blob";
+import { put, head } from "@vercel/blob";
 import { randomUUID } from "crypto";
 
 const cors = {
@@ -37,11 +37,20 @@ export default {
     const auth = blobAuth();
     if (!auth) return json({ error: "Blobの認証設定がありません" }, 500);
     try {
-      const result = await get(`shares/${id}.json`, { ...auth, access: "public" });
-      if (!result || result.statusCode !== 200 || !result.stream) {
-        return json({ error: "リンクが見つかりません" }, 404);
+      let blobUrl;
+      try {
+        const meta = await head(`shares/${id}.json`, auth);
+        blobUrl = meta.url;
+      } catch (headErr) {
+        const msg = headErr instanceof Error ? headErr.message : "";
+        if (/not found/i.test(msg) || headErr?.name === "BlobNotFoundError") {
+          return json({ error: "リンクが見つかりません" }, 404);
+        }
+        throw headErr;
       }
-      const cfg = JSON.parse(await new Response(result.stream).text());
+      const res = await fetch(blobUrl);
+      if (!res.ok) return json({ error: "設定の読み込みに失敗しました" }, 500);
+      const cfg = await res.json();
       if (!isValidConfig(cfg)) return json({ error: "設定が不正です" }, 500);
       return json(cfg);
     } catch (error) {
@@ -61,12 +70,13 @@ export default {
       const cfg = await request.json();
       if (!isValidConfig(cfg)) return json({ error: "設定が不正です" }, 400);
       const id = randomUUID();
-      await put(`shares/${id}.json`, JSON.stringify(cfg), {
+      const pathname = `shares/${id}.json`;
+      const blob = await put(pathname, JSON.stringify(cfg), {
         ...auth,
         access: "public",
         contentType: "application/json",
       });
-      return json({ id });
+      return json({ id, url: blob.url });
     } catch (error) {
       console.error("Share POST error:", error);
       return json({ error: "リンク作成に失敗しました" }, 500);
