@@ -305,7 +305,7 @@ You're breaking my heart 💔</textarea>
         <input type="text" id="linkOut" readonly>
         <button id="copyBtn">コピー</button>
       </div>
-      <div class="hint" id="copyHint">※ Vercel / GitHub Pages 等に公開したページで作成したリンクが相手に届く正式なURLになります</div>
+      <div class="hint" id="copyHint">※ 本番URL（yes-no-app-blue.vercel.app 等）で作成したリンクを送ってください。LINE等でも開けるよう ?d= 形式で生成します。</div>
     </div>
   </div>
 </div>
@@ -355,6 +355,17 @@ function decodeConfig(str) {
     const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
     return JSON.parse(new TextDecoder().decode(bytes));
   } catch (e) { return null; }
+}
+function buildShareUrl(cfg) {
+  const param = encodeURIComponent(encodeConfig(cfg));
+  return location.origin + location.pathname + "?d=" + param;
+}
+function readConfigFromUrl() {
+  const q = new URLSearchParams(location.search).get("d");
+  if (q) return decodeConfig(q);
+  const m = location.hash.match(/[#&]d=([^&]+)/);
+  if (m) return decodeConfig(m[1]);
+  return null;
 }
 
 /* ---------- キャラクター: 画像判定・アップロード・プレビュー ---------- */
@@ -622,7 +633,7 @@ document.getElementById("previewBtn").addEventListener("click", () => {
 });
 
 document.getElementById("makeLinkBtn").addEventListener("click", () => {
-  const url = location.origin + location.pathname + "#d=" + encodeConfig(readForm());
+  const url = buildShareUrl(readForm());
   const box = document.getElementById("linkBox");
   const out = document.getElementById("linkOut");
   out.value = url;
@@ -699,13 +710,10 @@ CHAR_IDS.forEach(id => {
 
 /* ---------- 起動時: URLに設定があれば相手モード ---------- */
 (function init() {
-  const m = location.hash.match(/[#&]d=([^&]+)/);
-  if (m) {
-    const cfg = decodeConfig(m[1]);
-    if (cfg && cfg.q && Array.isArray(cfg.n) && Array.isArray(cfg.c)) {
-      showQuestion(cfg, false);
-      return;
-    }
+  const cfg = readConfigFromUrl();
+  if (cfg && cfg.q && Array.isArray(cfg.n) && Array.isArray(cfg.c)) {
+    showQuestion(cfg, false);
+    return;
   }
   setupEl.style.display = "block";
 })();
