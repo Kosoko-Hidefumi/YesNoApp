@@ -18,6 +18,7 @@
     display: flex; align-items: center; justify-content: center;
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
+    overflow-x: hidden;
   }
   .scene {
     text-align: center;
@@ -86,10 +87,12 @@
     box-shadow: 0 5px 0 #8E1B1B, 0 8px 18px rgba(198,40,40,.3);
     font-size: 1.4rem; padding: 18px 40px;
     min-width: 44px; min-height: 44px; max-width: 80vw;
+    position: relative;
+    z-index: 5;
   }
   #noBtn.orbiting {
-    position: absolute;
-    z-index: 4;
+    position: fixed;
+    z-index: 5;
     margin: 0;
     transition: left .5s ease-in-out, top .5s ease-in-out, transform .25s cubic-bezier(.34,1.56,.64,1);
   }
@@ -496,12 +499,50 @@ const backBtn = document.getElementById("backBtn");
 const yesBtn = document.getElementById("yesBtn");
 const noBtn = document.getElementById("noBtn");
 const charEl = document.getElementById("char");
-const buttonsEl = document.querySelector(".buttons");
 
 let CFG = null, clicks = 0, yesScale = 1, noScale = 1, heartsTimer = null;
-let orbitAngle = 0, orbitTimer = 0;
-const NO_ORBIT_FROM = 4;
+let orbitAngle = 0, orbitTimer = 0, effectiveMaxYesScale = DEFAULTS.maxYesScale;
 const NO_ORBIT_SCALE = 0.92;
+
+function getNoOrbitFrom() {
+  return matchMedia("(max-width: 480px)").matches ? 2 : 4;
+}
+
+function getViewportSize() {
+  const vv = window.visualViewport;
+  return {
+    width: vv ? vv.width : window.innerWidth,
+    height: vv ? vv.height : window.innerHeight,
+    offsetLeft: vv ? vv.offsetLeft : 0,
+    offsetTop: vv ? vv.offsetTop : 0
+  };
+}
+
+function updateEffectiveMaxYesScale() {
+  const w = yesBtn.offsetWidth;
+  const h = yesBtn.offsetHeight;
+  if (!w || !h) {
+    effectiveMaxYesScale = DEFAULTS.maxYesScale;
+    return;
+  }
+  effectiveMaxYesScale = Math.min(
+    DEFAULTS.maxYesScale,
+    (window.innerWidth * 0.92) / w,
+    (window.innerHeight * 0.6) / h
+  );
+}
+
+function onQuestionLayoutChange() {
+  if (questionEl.style.display === "none") return;
+  updateEffectiveMaxYesScale();
+  if (yesScale > effectiveMaxYesScale) {
+    yesScale = effectiveMaxYesScale;
+    yesBtn.style.transform = `scale(${yesScale})`;
+  }
+  if (noBtn.classList.contains("orbiting")) {
+    placeNoAroundYes(orbitAngle);
+  }
+}
 
 function stopNoOrbit() {
   clearTimeout(orbitTimer);
@@ -509,23 +550,24 @@ function stopNoOrbit() {
   noBtn.classList.remove("orbiting");
   noBtn.style.left = "";
   noBtn.style.top = "";
+  noBtn.style.position = "";
 }
 
 function getNoMoveZone() {
-  const box = buttonsEl.getBoundingClientRect();
+  const vp = getViewportSize();
   const char = charEl.getBoundingClientRect();
   const yes = yesBtn.getBoundingClientRect();
   const noW = noBtn.offsetWidth;
   const noH = noBtn.offsetHeight;
   const pad = 10;
   return {
-    cx: yes.left + yes.width / 2 - box.left,
-    cy: yes.top + yes.height / 2 - box.top,
+    cx: yes.left + yes.width / 2,
+    cy: yes.top + yes.height / 2,
     r: Math.max(yes.width, yes.height) * 0.36 + 44,
-    minX: pad,
-    maxX: box.width - noW - pad,
-    minY: Math.max(pad, char.bottom - box.top + pad),
-    maxY: Math.max(box.height - noH - pad, char.bottom - box.top + pad),
+    minX: vp.offsetLeft + pad,
+    maxX: vp.offsetLeft + vp.width - noW - pad,
+    minY: Math.max(vp.offsetTop + pad, char.bottom + pad),
+    maxY: vp.offsetTop + vp.height - noH - pad,
     noW, noH
   };
 }
@@ -606,15 +648,17 @@ function showQuestion(cfg, isPreview) {
   document.getElementById("qFrom").textContent = cfg.f ? "from " + cfg.f : "";
   backBtn.classList.toggle("show", !!isPreview);
   document.title = cfg.q;
+  updateEffectiveMaxYesScale();
 }
 
 noBtn.addEventListener("click", () => {
   clicks++;
   noBtn.textContent = CFG.n[Math.min(clicks - 1, CFG.n.length - 1)];
-  yesScale = Math.min(yesScale * DEFAULTS.yesGrowth, DEFAULTS.maxYesScale);
+  updateEffectiveMaxYesScale();
+  yesScale = Math.min(yesScale * DEFAULTS.yesGrowth, effectiveMaxYesScale);
   yesBtn.style.transform = `scale(${yesScale})`;
 
-  if (clicks >= NO_ORBIT_FROM) {
+  if (clicks >= getNoOrbitFrom()) {
     startNoOrbit();
     nudgeNoAroundYes();
   } else {
@@ -740,6 +784,13 @@ CHAR_IDS.forEach(id => {
   });
   updateCharPreview(id, getCharValue(id));
 });
+
+window.addEventListener("resize", onQuestionLayoutChange);
+window.addEventListener("orientationchange", onQuestionLayoutChange);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener("resize", onQuestionLayoutChange);
+  window.visualViewport.addEventListener("scroll", onQuestionLayoutChange);
+}
 
 /* ---------- 起動時: URLに設定があれば相手モード ---------- */
 (async function init() {
