@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Will you say Yes? 💌</title>
+<meta property="og:title" content="大事な質問があります…💌">
+<meta name="theme-color" content="#FFC0CB">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@500;800&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { min-height: 100%; }
+  body {
+    font-family: 'M PLUS Rounded 1c', 'Quicksand', -apple-system, sans-serif;
+    background: linear-gradient(160deg, #FFE3EC 0%, #FFC9D9 55%, #FFB3C8 100%);
+    display: flex; align-items: center; justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .scene {
+    text-align: center;
+    padding: 24px;
+    width: 100%;
+    max-width: 560px;
+    position: relative;
+    z-index: 2;
+  }
+  h1 {
+    color: #B4174B;
+    font-size: clamp(1.4rem, 6vw, 2.2rem);
+    font-weight: 800;
+    letter-spacing: .02em;
+    text-shadow: 0 2px 0 rgba(255,255,255,.5);
+    margin-bottom: 8px;
+    overflow-wrap: break-word;
+  }
+  .char {
+    font-size: clamp(4rem, 20vw, 7rem);
+    line-height: 1.2;
+    margin: 16px 0 28px;
+    user-select: none;
+    position: relative;
+    z-index: 6;            /* ボタンが巨大化しても常に手前 */
+    pointer-events: none;  /* 重なってもYesのクリックを邪魔しない */
+    filter: drop-shadow(0 3px 6px rgba(180,23,75,.25));
+  }
+  .char img {
+    max-width: min(70vw, 320px);
+    max-height: 28vh;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(180,23,75,.3);
+    background: #fff;
+  }
+  .char.bounce { animation: bounce .5s ease; }
+  @keyframes bounce {
+    0%,100% { transform: scale(1); }
+    40% { transform: scale(1.18) rotate(-4deg); }
+    70% { transform: scale(.95) rotate(3deg); }
+  }
+  .buttons {
+    display: flex; align-items: center; justify-content: center;
+    gap: 22px; flex-wrap: wrap;
+    min-height: 140px;
+    position: relative;
+    overflow: visible;
+  }
+  .scene button {
+    font-family: inherit; font-weight: 800; color: #fff;
+    border: none; border-radius: 18px; cursor: pointer;
+    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .2s ease;
+    touch-action: manipulation;
+  }
+  .scene button:active { filter: brightness(.95); }
+  #yesBtn {
+    background: linear-gradient(180deg, #5BC25F, #43A047);
+    box-shadow: 0 6px 0 #2E7D32, 0 10px 22px rgba(46,125,50,.35);
+    font-size: 1.5rem; padding: 18px 46px;
+    transform-origin: top center;
+    position: relative;
+    z-index: 3;
+  }
+  #noBtn {
+    background: linear-gradient(180deg, #E5484D, #C62828);
+    box-shadow: 0 5px 0 #8E1B1B, 0 8px 18px rgba(198,40,40,.3);
+    font-size: 1.4rem; padding: 18px 40px;
+    min-width: 44px; min-height: 44px; max-width: 80vw;
+  }
+  #noBtn.orbiting {
+    position: absolute;
+    z-index: 4;
+    margin: 0;
+    transition: left .5s ease-in-out, top .5s ease-in-out, transform .25s cubic-bezier(.34,1.56,.64,1);
+  }
+  .msg {
+    color: #B4174B; font-weight: 600;
+    font-size: clamp(1rem, 4.5vw, 1.4rem);
+    margin-top: 14px;
+    overflow-wrap: break-word;
+  }
+  .from { color: #C2477A; font-weight: 600; margin-top: 22px; font-size: 1rem; }
+  /* ---- creator (setup) mode ---- */
+  #setup {
+    background: rgba(255,255,255,.75);
+    backdrop-filter: blur(6px);
+    border-radius: 24px;
+    box-shadow: 0 10px 30px rgba(180,23,75,.15);
+    padding: 28px 22px;
+    margin: 24px 12px;
+    width: 100%; max-width: 620px;
+    z-index: 2;
+  }
+  #setup h1 { font-size: 1.5rem; margin-bottom: 4px; }
+  #setup .sub { color: #C2477A; font-size: .9rem; margin-bottom: 22px; font-weight: 500; }
+  .field { text-align: left; margin-bottom: 16px; }
+  .field label {
+    display: block; color: #B4174B; font-weight: 700;
+    font-size: .88rem; margin-bottom: 6px;
+  }
+  .field input[type=text], .field textarea {
+    width: 100%; font-family: inherit; font-size: 1rem;
+    border: 2px solid #F7B8CC; border-radius: 12px;
+    padding: 10px 12px; background: #fff; color: #6B2140;
+    outline: none;
+  }
+  .field input:focus, .field textarea:focus { border-color: #E0578D; }
+  .field textarea { resize: vertical; min-height: 132px; line-height: 1.7; }
+  .field .hint { color: #C77E9C; font-size: .78rem; margin-top: 4px; }
+  .char-row {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .char-row .char-input { flex: 1; min-width: 140px; }
+  .char-preview {
+    width: 52px; height: 52px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; line-height: 1;
+    background: #FFF5F8; border: 2px solid #F7B8CC; border-radius: 12px;
+    overflow: hidden;
+  }
+  .char-preview img { width: 100%; height: 100%; object-fit: cover; }
+  .upload-btn, .clear-char-btn {
+    font-family: inherit; font-weight: 700; font-size: .85rem;
+    border: 2px solid #F7B8CC; border-radius: 12px;
+    background: #fff; color: #B4174B; cursor: pointer;
+    padding: 10px 12px; touch-action: manipulation; white-space: nowrap;
+  }
+  .upload-btn { display: inline-flex; align-items: center; }
+  .upload-btn input { display: none; }
+  .upload-btn.busy { opacity: 0.6; pointer-events: none; }
+  .clear-char-btn { padding: 10px 11px; }
+  details { text-align: left; margin: 6px 0 18px; }
+  details summary {
+    color: #B4174B; font-weight: 700; font-size: .9rem;
+    cursor: pointer; padding: 6px 0;
+  }
+  .actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 8px; }
+  .actions button {
+    font-family: inherit; font-weight: 800; font-size: 1.05rem;
+    border: none; border-radius: 14px; padding: 14px 28px;
+    cursor: pointer; color: #fff; touch-action: manipulation;
+  }
+  #previewBtn { background: linear-gradient(180deg,#F48FB1,#E0578D); box-shadow: 0 4px 0 #B44370; }
+  #makeLinkBtn { background: linear-gradient(180deg,#5BC25F,#43A047); box-shadow: 0 4px 0 #2E7D32; }
+  #linkBox { display: none; margin-top: 20px; text-align: left; }
+  #linkBox.show { display: block; }
+  #linkBox .row { display: flex; gap: 8px; }
+  #linkOut {
+    flex: 1; font-size: .82rem; padding: 10px 12px;
+    border: 2px solid #F7B8CC; border-radius: 12px;
+    color: #6B2140; background: #fff; min-width: 0;
+  }
+  #copyBtn {
+    background: linear-gradient(180deg,#7986CB,#5C6BC0);
+    box-shadow: 0 4px 0 #3949AB;
+    color: #fff; border: none; border-radius: 12px;
+    font-family: inherit; font-weight: 800; padding: 0 18px; cursor: pointer;
+    white-space: nowrap;
+  }
+  #backBtn {
+    position: fixed; top: 14px; left: 14px; z-index: 5;
+    background: rgba(255,255,255,.85); color: #B4174B;
+    border: 2px solid #F7B8CC; border-radius: 999px;
+    font-family: inherit; font-weight: 700; font-size: .85rem;
+    padding: 8px 16px; cursor: pointer; display: none;
+  }
+  #backBtn.show { display: block; }
+  .heart {
+    position: fixed; bottom: -10vh; font-size: 1.8rem;
+    animation: floatUp linear forwards;
+    pointer-events: none; z-index: 1;
+  }
+  @keyframes floatUp { to { transform: translateY(-120vh) rotate(30deg); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) {
+    *, .char.bounce, .heart { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 作成モード ===== -->
+<div id="setup">
+  <h1>質問リンクを作る 💌</h1>
+  <p class="sub">内容を設定して「リンクを作成」→ できたURLを相手に送ってください</p>
+
+  <div class="field">
+    <label for="fQuestion">質問文</label>
+    <input type="text" id="fQuestion" value="Will you be my Valentine? 💕">
+  </div>
+
+  <div class="field">
+    <label for="fNoMsgs">「No」を押したときのメッセージ(1行に1つ・上から順に表示)</label>
+    <textarea id="fNoMsgs">Are you sure? 🥺
+Pookie please... 🥺
+Don't do this to me 💔
+I'm gonna cry... 😢
+Please??? 🥹
+Last chance! 😤
+You're breaking my heart 💔</textarea>
+    <div class="hint">最後の行以降は最後のメッセージが表示され続けます</div>
+  </div>
+
+  <div class="field">
+    <label for="fCelebTitle">Yesのあとのタイトル</label>
+    <input type="text" id="fCelebTitle" value="Knew you would say yes! 🎉">
+  </div>
+
+  <div class="field">
+    <label for="fCelebMsg">Yesのあとのメッセージ</label>
+    <input type="text" id="fCelebMsg" value="You just made me the happiest person! 💕">
+  </div>
+
+  <div class="field">
+    <label for="fFrom">差出人名(任意・「from ○○」と表示)</label>
+    <input type="text" id="fFrom" value="" placeholder="例: ひでふみ">
+  </div>
+
+  <details>
+    <summary>キャラクターを変える(絵文字・画像アップロード・URL)</summary>
+    <div class="field" style="margin-top:8px">
+      <div class="hint" style="margin-bottom:10px">
+        📷 で端末から画像やGIFをアップロードできます（サイズ制限なし・サーバーに保存）。
+        共有リンクには画像URLだけが入るため、大きなGIFでも問題ありません。
+        絵文字や外部URL(https://〜)の直接入力も可能です。
+        ※ ローカル確認時は <code>python server.py</code> で起動し、
+        <a href="http://127.0.0.1:8765/YesNo.HTML">http://127.0.0.1:8765/YesNo.HTML</a> から開いてください。
+      </div>
+    </div>
+    <div class="field char-field">
+      <label for="fC1">最初(にこにこ)</label>
+      <div class="char-row">
+        <div class="char-preview" id="prevC1" aria-hidden="true">🐻💗</div>
+        <input type="text" id="fC1" class="char-input" value="🐻💗" placeholder="絵文字 または https://〜.gif">
+        <label class="upload-btn">📷<input type="file" class="char-file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+        <button type="button" class="clear-char-btn" title="既定に戻す">↩</button>
+      </div>
+    </div>
+    <div class="field char-field">
+      <label for="fC2">2〜3回目(おねがい)</label>
+      <div class="char-row">
+        <div class="char-preview" id="prevC2" aria-hidden="true">🐻🥺</div>
+        <input type="text" id="fC2" class="char-input" value="🐻🥺" placeholder="絵文字 または https://〜.gif">
+        <label class="upload-btn">📷<input type="file" class="char-file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+        <button type="button" class="clear-char-btn" title="既定に戻す">↩</button>
+      </div>
+    </div>
+    <div class="field char-field">
+      <label for="fC3">4〜5回目(泣き)</label>
+      <div class="char-row">
+        <div class="char-preview" id="prevC3" aria-hidden="true">🐻😢</div>
+        <input type="text" id="fC3" class="char-input" value="🐻😢" placeholder="絵文字 または https://〜.gif">
+        <label class="upload-btn">📷<input type="file" class="char-file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+        <button type="button" class="clear-char-btn" title="既定に戻す">↩</button>
+      </div>
+    </div>
+    <div class="field char-field">
+      <label for="fC4">6回目以降(号泣)</label>
+      <div class="char-row">
+        <div class="char-preview" id="prevC4" aria-hidden="true">🐻😭🌧️</div>
+        <input type="text" id="fC4" class="char-input" value="🐻😭🌧️" placeholder="絵文字 または https://〜.gif">
+        <label class="upload-btn">📷<input type="file" class="char-file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+        <button type="button" class="clear-char-btn" title="既定に戻す">↩</button>
+      </div>
+    </div>
+    <div class="field char-field">
+      <label for="fC5">Yesのあと(ハッピー)</label>
+      <div class="char-row">
+        <div class="char-preview" id="prevC5" aria-hidden="true">🐻❤️🐰</div>
+        <input type="text" id="fC5" class="char-input" value="🐻❤️🐰" placeholder="絵文字 または https://〜.gif">
+        <label class="upload-btn">📷<input type="file" class="char-file" accept="image/jpeg,image/png,image/gif,image/webp"></label>
+        <button type="button" class="clear-char-btn" title="既定に戻す">↩</button>
+      </div>
+    </div>
+  </details>
+
+  <div class="actions">
+    <button id="previewBtn">プレビュー ▶</button>
+    <button id="makeLinkBtn">リンクを作成 🔗</button>
+  </div>
+
+  <div id="linkBox">
+    <div class="field" style="margin-bottom:8px">
+      <label for="linkOut">このURLを相手に送ってください</label>
+      <div class="row">
+        <input type="text" id="linkOut" readonly>
+        <button id="copyBtn">コピー</button>
+      </div>
+      <div class="hint" id="copyHint">※ Vercel / GitHub Pages 等に公開したページで作成したリンクが相手に届く正式なURLになります</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 質問画面(相手側) ===== -->
+<div class="scene" id="question" style="display:none">
+  <h1 id="qTitle"></h1>
+  <div class="char" id="char"></div>
+  <div class="buttons">
+    <button id="yesBtn">Yes</button>
+    <button id="noBtn">No</button>
+  </div>
+  <p class="from" id="qFrom"></p>
+</div>
+
+<!-- ===== お祝い画面 ===== -->
+<div class="scene" id="celebration" style="display:none">
+  <h1 id="cTitle"></h1>
+  <div class="char" id="cChar"></div>
+  <p class="msg" id="cMsg"></p>
+  <p class="from" id="cFrom"></p>
+</div>
+
+<button id="backBtn">← 設定に戻る</button>
+
+<script>
+/* ---------- 既定値と拡大縮小の設定 ---------- */
+const DEFAULTS = { yesGrowth: 1.45, noShrink: 0.8, maxYesScale: 12, minNoScale: 0.35 };
+const CHAR_IDS = ["fC1", "fC2", "fC3", "fC4", "fC5"];
+const CHAR_DEFAULTS = ["🐻💗", "🐻🥺", "🐻😢", "🐻😭🌧️", "🐻❤️🐰"];
+const charUploads = Object.create(null);
+const UPLOAD_API = "/api/upload";
+
+/* ---------- URLハッシュ ⇄ 設定オブジェクト ---------- */
+function encodeConfig(cfg) {
+  const json = JSON.stringify(cfg);
+  const bytes = new TextEncoder().encode(json);
+  let bin = "";
+  bytes.forEach(b => bin += String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function decodeConfig(str) {
+  try {
+    let b64 = str.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    const bin = atob(b64);
+    const bytes = Uint8Array.from(bin, ch => ch.charCodeAt(0));
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (e) { return null; }
+}
+
+/* ---------- キャラクター: 画像判定・アップロード・プレビュー ---------- */
+function isImageVal(val) {
+  return /^https?:\/\//i.test(val) || /^data:image\//i.test(val);
+}
+function getCharValue(id) {
+  if (charUploads[id]) return charUploads[id];
+  const idx = CHAR_IDS.indexOf(id);
+  const v = document.getElementById(id).value.trim();
+  return v || CHAR_DEFAULTS[idx];
+}
+function updateCharPreview(id, val) {
+  const prev = document.getElementById("prev" + id.slice(1));
+  prev.textContent = "";
+  if (isImageVal(val)) {
+    const img = document.createElement("img");
+    img.src = val;
+    img.alt = "";
+    prev.appendChild(img);
+  } else {
+    prev.textContent = val || CHAR_DEFAULTS[CHAR_IDS.indexOf(id)];
+  }
+}
+async function uploadImageFile(file, uploadBtn) {
+  const ext = (file.name || "").toLowerCase();
+  const isImage = file.type.startsWith("image/") || /\.(jpe?g|png|gif|webp)$/i.test(ext);
+  if (!isImage) throw new Error("画像ファイルを選んでください");
+  const form = new FormData();
+  form.append("file", file);
+  const label = uploadBtn;
+  const prev = label.textContent;
+  label.classList.add("busy");
+  label.textContent = "⏳";
+  try {
+    const res = await fetch(UPLOAD_API, { method: "POST", body: form });
+    const text = await res.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch (e) {}
+    if (!res.ok) {
+      if (res.status === 501) {
+        throw new Error("アップロードAPIが使えません。python server.py で起動した http://127.0.0.1:8765/YesNo.HTML から開いてください。");
+      }
+      throw new Error(data.error || "アップロードに失敗しました");
+    }
+    if (!data.url) throw new Error("アップロード応答が不正です");
+    return data.url;
+  } catch (err) {
+    if (err.message === "Failed to fetch" || err.name === "TypeError") {
+      throw new Error("アップロードAPIに接続できません。python server.py でサーバーを起動してから開いてください。");
+    }
+    throw err;
+  } finally {
+    label.classList.remove("busy");
+    label.textContent = prev;
+  }
+}
+function setCharUpload(id, url) {
+  charUploads[id] = url;
+  const el = document.getElementById(id);
+  el.value = url;
+  el.placeholder = "絵文字 または https://〜.gif";
+  el.dataset.mode = "upload";
+  updateCharPreview(id, url);
+}
+function clearChar(id) {
+  delete charUploads[id];
+  const idx = CHAR_IDS.indexOf(id);
+  const el = document.getElementById(id);
+  el.value = CHAR_DEFAULTS[idx];
+  el.placeholder = "絵文字 または https://〜.gif";
+  delete el.dataset.mode;
+  updateCharPreview(id, CHAR_DEFAULTS[idx]);
+}
+
+/* ---------- フォームから設定を組み立て ---------- */
+function readForm() {
+  const noMsgs = document.getElementById("fNoMsgs").value
+    .split("\n").map(s => s.trim()).filter(Boolean);
+  return {
+    q:  document.getElementById("fQuestion").value.trim() || "Will you say yes? 💕",
+    n:  noMsgs.length ? noMsgs : ["Are you sure? 🥺"],
+    ct: document.getElementById("fCelebTitle").value.trim() || "Yay!! 🎉",
+    cm: document.getElementById("fCelebMsg").value.trim() || "",
+    f:  document.getElementById("fFrom").value.trim(),
+    c: CHAR_IDS.map(id => getCharValue(id))
+  };
+}
+
+/* ---------- 質問画面の描画とゲームロジック ---------- */
+const setupEl = document.getElementById("setup");
+const questionEl = document.getElementById("question");
+const celebrationEl = document.getElementById("celebration");
+const backBtn = document.getElementById("backBtn");
+const yesBtn = document.getElementById("yesBtn");
+const noBtn = document.getElementById("noBtn");
+const charEl = document.getElementById("char");
+const buttonsEl = document.querySelector(".buttons");
+
+let CFG = null, clicks = 0, yesScale = 1, noScale = 1, heartsTimer = null;
+let orbitAngle = 0, orbitTimer = 0;
+const NO_ORBIT_FROM = 4;
+const NO_ORBIT_SCALE = 0.92;
+
+function stopNoOrbit() {
+  clearTimeout(orbitTimer);
+  orbitTimer = 0;
+  noBtn.classList.remove("orbiting");
+  noBtn.style.left = "";
+  noBtn.style.top = "";
+}
+
+function getNoMoveZone() {
+  const box = buttonsEl.getBoundingClientRect();
+  const char = charEl.getBoundingClientRect();
+  const yes = yesBtn.getBoundingClientRect();
+  const noW = noBtn.offsetWidth;
+  const noH = noBtn.offsetHeight;
+  const pad = 10;
+  return {
+    cx: yes.left + yes.width / 2 - box.left,
+    cy: yes.top + yes.height / 2 - box.top,
+    r: Math.max(yes.width, yes.height) * 0.36 + 44,
+    minX: pad,
+    maxX: box.width - noW - pad,
+    minY: Math.max(pad, char.bottom - box.top + pad),
+    maxY: Math.max(box.height - noH - pad, char.bottom - box.top + pad),
+    noW, noH
+  };
+}
+
+function clampNoPos(x, y, zone) {
+  return {
+    x: Math.max(zone.minX, Math.min(zone.maxX, x)),
+    y: Math.max(zone.minY, Math.min(zone.maxY, y))
+  };
+}
+
+function placeNoAroundYes(angle) {
+  const zone = getNoMoveZone();
+  let x = zone.cx + Math.cos(angle) * zone.r - zone.noW / 2;
+  let y = zone.cy + Math.sin(angle) * zone.r - zone.noH / 2;
+  const pos = clampNoPos(x, y, zone);
+  noBtn.style.left = pos.x + "px";
+  noBtn.style.top = pos.y + "px";
+}
+
+function pickOrbitAngle() {
+  return Math.PI * (0.15 + Math.random() * 0.7);
+}
+
+function nudgeNoAroundYes() {
+  orbitAngle = pickOrbitAngle();
+  placeNoAroundYes(orbitAngle);
+}
+
+function scheduleNoWander() {
+  if (!noBtn.classList.contains("orbiting")) return;
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const pauseMs = reduced ? 3000 : 1200 + Math.random() * 1400;
+  orbitTimer = setTimeout(() => {
+    if (!noBtn.classList.contains("orbiting")) return;
+    nudgeNoAroundYes();
+    scheduleNoWander();
+  }, pauseMs);
+}
+
+function startNoOrbit() {
+  const wasOrbiting = noBtn.classList.contains("orbiting");
+  noBtn.classList.add("orbiting");
+  noBtn.style.transform = `scale(${NO_ORBIT_SCALE})`;
+  noScale = NO_ORBIT_SCALE;
+  if (!wasOrbiting) {
+    orbitAngle = pickOrbitAngle();
+    placeNoAroundYes(orbitAngle);
+    scheduleNoWander();
+  }
+}
+
+/* 絵文字または画像(URL / アップロード)をキャラクター欄に表示する */
+function renderChar(el, val) {
+  el.textContent = "";
+  if (isImageVal(val)) {
+    const img = document.createElement("img");
+    img.src = val;
+    img.alt = "";
+    img.onerror = () => { el.textContent = "🐻💗"; };
+    el.appendChild(img);
+  } else {
+    el.textContent = val;
+  }
+}
+
+function showQuestion(cfg, isPreview) {
+  CFG = cfg; clicks = 0; yesScale = 1; noScale = 1; orbitAngle = Math.random() * Math.PI * 2;
+  stopNoOrbit();
+  setupEl.style.display = "none";
+  celebrationEl.style.display = "none";
+  questionEl.style.display = "block";
+  document.getElementById("qTitle").textContent = cfg.q;
+  renderChar(charEl, cfg.c[0]);
+  noBtn.textContent = "No";
+  noBtn.style.transform = "scale(1)";
+  yesBtn.style.transform = "scale(1)";
+  document.getElementById("qFrom").textContent = cfg.f ? "from " + cfg.f : "";
+  backBtn.classList.toggle("show", !!isPreview);
+  document.title = cfg.q;
+}
+
+noBtn.addEventListener("click", () => {
+  clicks++;
+  noBtn.textContent = CFG.n[Math.min(clicks - 1, CFG.n.length - 1)];
+  yesScale = Math.min(yesScale * DEFAULTS.yesGrowth, DEFAULTS.maxYesScale);
+  yesBtn.style.transform = `scale(${yesScale})`;
+
+  if (clicks >= NO_ORBIT_FROM) {
+    startNoOrbit();
+    nudgeNoAroundYes();
+  } else {
+    noScale = Math.max(noScale * DEFAULTS.noShrink, DEFAULTS.minNoScale);
+    noBtn.style.transform = `scale(${noScale})`;
+  }
+
+  renderChar(charEl, clicks >= 6 ? CFG.c[3] : clicks >= 4 ? CFG.c[2] : clicks >= 2 ? CFG.c[1] : CFG.c[0]);
+  charEl.classList.remove("bounce");
+  void charEl.offsetWidth;
+  charEl.classList.add("bounce");
+});
+
+yesBtn.addEventListener("click", () => {
+  questionEl.style.display = "none";
+  celebrationEl.style.display = "block";
+  document.getElementById("cTitle").textContent = CFG.ct;
+  renderChar(document.getElementById("cChar"), CFG.c[4]);
+  document.getElementById("cMsg").textContent = CFG.cm;
+  document.getElementById("cFrom").textContent = CFG.f ? "from " + CFG.f : "";
+  fireConfetti();
+  startHearts();
+});
+
+backBtn.addEventListener("click", () => {
+  stopHearts();
+  stopNoOrbit();
+  questionEl.style.display = "none";
+  celebrationEl.style.display = "none";
+  backBtn.classList.remove("show");
+  setupEl.style.display = "block";
+  document.title = "Will you say Yes? 💌";
+});
+
+/* ---------- 作成モードのボタン ---------- */
+document.getElementById("previewBtn").addEventListener("click", () => {
+  showQuestion(readForm(), true);
+});
+
+document.getElementById("makeLinkBtn").addEventListener("click", () => {
+  const url = location.origin + location.pathname + "#d=" + encodeConfig(readForm());
+  const box = document.getElementById("linkBox");
+  const out = document.getElementById("linkOut");
+  out.value = url;
+  box.classList.add("show");
+  out.focus(); out.select();
+});
+
+document.getElementById("copyBtn").addEventListener("click", async () => {
+  const out = document.getElementById("linkOut");
+  out.focus(); out.select(); out.setSelectionRange(0, out.value.length);
+  let ok = false;
+  try { await navigator.clipboard.writeText(out.value); ok = true; }
+  catch (e) { try { ok = document.execCommand("copy"); } catch (e2) {} }
+  document.getElementById("copyBtn").textContent = ok ? "コピー済 ✓" : "手動で選択してコピーしてください";
+  setTimeout(() => document.getElementById("copyBtn").textContent = "コピー", 2000);
+});
+
+/* ---------- エフェクト ---------- */
+function fireConfetti() {
+  if (typeof confetti !== "function") return;
+  const end = Date.now() + 3000;
+  (function frame() {
+    confetti({ particleCount: 5, angle: 60,  spread: 60, origin: { x: 0 },
+               colors: ["#FF6B9D", "#C2185B", "#FFD166", "#FFFFFF"] });
+    confetti({ particleCount: 5, angle: 120, spread: 60, origin: { x: 1 },
+               colors: ["#FF6B9D", "#C2185B", "#FFD166", "#FFFFFF"] });
+    if (Date.now() < end) requestAnimationFrame(frame);
+  })();
+  confetti({ particleCount: 140, spread: 100, origin: { y: 0.6 } });
+}
+function startHearts() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const emojis = ["❤️", "💕", "💖", "💗"];
+  heartsTimer = setInterval(() => {
+    const h = document.createElement("span");
+    h.className = "heart";
+    h.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    h.style.left = Math.random() * 100 + "vw";
+    h.style.fontSize = (1.2 + Math.random() * 1.6) + "rem";
+    h.style.animationDuration = (4 + Math.random() * 4) + "s";
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 9000);
+  }, 400);
+}
+function stopHearts() {
+  clearInterval(heartsTimer);
+  document.querySelectorAll(".heart").forEach(h => h.remove());
+}
+
+/* ---------- キャラクター欄: アップロードUI ---------- */
+CHAR_IDS.forEach(id => {
+  const field = document.getElementById(id).closest(".char-field");
+  field.querySelector(".char-file").addEventListener("change", async e => {
+    const file = e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const uploadBtn = field.querySelector(".upload-btn");
+    try {
+      setCharUpload(id, await uploadImageFile(file, uploadBtn));
+    } catch (err) {
+      alert(err.message || "アップロードに失敗しました");
+    }
+  });
+  field.querySelector(".clear-char-btn").addEventListener("click", () => clearChar(id));
+  document.getElementById(id).addEventListener("input", () => {
+    const el = document.getElementById(id);
+    if (el.dataset.mode === "upload" && el.value === charUploads[id]) return;
+    delete charUploads[id];
+    delete el.dataset.mode;
+    updateCharPreview(id, el.value.trim() || CHAR_DEFAULTS[CHAR_IDS.indexOf(id)]);
+  });
+  updateCharPreview(id, getCharValue(id));
+});
+
+/* ---------- 起動時: URLに設定があれば相手モード ---------- */
+(function init() {
+  const m = location.hash.match(/[#&]d=([^&]+)/);
+  if (m) {
+    const cfg = decodeConfig(m[1]);
+    if (cfg && cfg.q && Array.isArray(cfg.n) && Array.isArray(cfg.c)) {
+      showQuestion(cfg, false);
+      return;
+    }
+  }
+  setupEl.style.display = "block";
+})();
+</script>
+</body>
+</html>
