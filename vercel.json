@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/YesNo.HTML", "destination": "/index.html" }
+  ]
+}

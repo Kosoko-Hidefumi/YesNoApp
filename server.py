@@ -102,6 +102,6 @@ class Handler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     print(f"Serving {ROOT}")
-    print(f"  App:    http://127.0.0.1:{PORT}/YesNo.HTML")
+    print(f"  App:    http://127.0.0.1:{PORT}/")
     print(f"  Upload: POST http://127.0.0.1:{PORT}/api/upload")
     HTTPServer(("0.0.0.0", PORT), Handler).serve_forever()
