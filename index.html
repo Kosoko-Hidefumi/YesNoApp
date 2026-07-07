@@ -305,7 +305,7 @@ You're breaking my heart 💔</textarea>
         <input type="text" id="linkOut" readonly>
         <button id="copyBtn">コピー</button>
       </div>
-      <div class="hint" id="copyHint">※ 本番URL（yes-no-app-blue.vercel.app 等）で作成したリンクを送ってください。LINE等でも開けるよう ?d= 形式で生成します。</div>
+      <div class="hint" id="copyHint">※ 画像入りリンクは短いURL（?s=...）で生成します。LINE等のスマホでも開けます。</div>
     </div>
   </div>
 </div>
@@ -356,16 +356,38 @@ function decodeConfig(str) {
     return JSON.parse(new TextDecoder().decode(bytes));
   } catch (e) { return null; }
 }
-function buildShareUrl(cfg) {
-  const param = encodeURIComponent(encodeConfig(cfg));
-  return location.origin + location.pathname + "?d=" + param;
-}
 function readConfigFromUrl() {
   const q = new URLSearchParams(location.search).get("d");
   if (q) return decodeConfig(q);
   const m = location.hash.match(/[#&]d=([^&]+)/);
   if (m) return decodeConfig(m[1]);
   return null;
+}
+async function loadSharedConfig() {
+  const sid = new URLSearchParams(location.search).get("s");
+  if (!sid) return null;
+  try {
+    const res = await fetch("/api/share?id=" + encodeURIComponent(sid));
+    const cfg = await res.json().catch(() => null);
+    if (res.ok && isValidSharedConfig(cfg)) return cfg;
+  } catch (e) {}
+  return null;
+}
+function isValidSharedConfig(cfg) {
+  return cfg && cfg.q && Array.isArray(cfg.n) && Array.isArray(cfg.c);
+}
+async function buildShareUrl(cfg) {
+  if (isLocalDev()) {
+    return location.origin + location.pathname + "?d=" + encodeURIComponent(encodeConfig(cfg));
+  }
+  const res = await fetch("/api/share", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(cfg),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "リンク作成に失敗しました");
+  return location.origin + location.pathname + "?s=" + data.id;
 }
 
 /* ---------- キャラクター: 画像判定・アップロード・プレビュー ---------- */
@@ -632,13 +654,24 @@ document.getElementById("previewBtn").addEventListener("click", () => {
   showQuestion(readForm(), true);
 });
 
-document.getElementById("makeLinkBtn").addEventListener("click", () => {
-  const url = buildShareUrl(readForm());
-  const box = document.getElementById("linkBox");
-  const out = document.getElementById("linkOut");
-  out.value = url;
-  box.classList.add("show");
-  out.focus(); out.select();
+document.getElementById("makeLinkBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("makeLinkBtn");
+  const prev = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = "作成中…";
+  try {
+    const url = await buildShareUrl(readForm());
+    const box = document.getElementById("linkBox");
+    const out = document.getElementById("linkOut");
+    out.value = url;
+    box.classList.add("show");
+    out.focus(); out.select();
+  } catch (err) {
+    alert(err.message || "リンク作成に失敗しました");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = prev;
+  }
 });
 
 document.getElementById("copyBtn").addEventListener("click", async () => {
@@ -709,9 +742,14 @@ CHAR_IDS.forEach(id => {
 });
 
 /* ---------- 起動時: URLに設定があれば相手モード ---------- */
-(function init() {
+(async function init() {
+  const shared = await loadSharedConfig();
+  if (shared) {
+    showQuestion(shared, false);
+    return;
+  }
   const cfg = readConfigFromUrl();
-  if (cfg && cfg.q && Array.isArray(cfg.n) && Array.isArray(cfg.c)) {
+  if (isValidSharedConfig(cfg)) {
     showQuestion(cfg, false);
     return;
   }

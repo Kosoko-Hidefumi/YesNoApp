@@ -1,3 +1,5 @@
 uploads/*
 !uploads/.gitkeep
+shares/*
+!shares/.gitkeep
 node_modules/
