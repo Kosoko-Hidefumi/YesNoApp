@@ -390,37 +390,35 @@ async function uploadImageFile(file, uploadBtn) {
   const prev = label.textContent;
   label.classList.add("busy");
   label.textContent = "⏳";
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 120000);
   try {
-    if (isLocalDev()) {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch(UPLOAD_API, { method: "POST", body: form });
-      const text = await res.text();
-      let data = {};
-      try { data = JSON.parse(text); } catch (e) {}
-      if (!res.ok) {
-        if (res.status === 501) {
-          throw new Error("アップロードAPIが使えません。python server.py で起動した http://127.0.0.1:8765/ から開いてください。");
-        }
-        throw new Error(data.error || "アップロードに失敗しました");
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(UPLOAD_API, { method: "POST", body: form, signal: controller.signal });
+    const text = await res.text();
+    let data = {};
+    try { data = JSON.parse(text); } catch (e) {}
+    if (!res.ok) {
+      if (res.status === 501) {
+        throw new Error("アップロードAPIが使えません。python server.py で起動した http://127.0.0.1:8765/ から開いてください。");
       }
-      if (!data.url) throw new Error("アップロード応答が不正です");
-      return data.url;
+      throw new Error(data.error || "アップロードに失敗しました");
     }
-    const { upload } = await import("https://esm.sh/@vercel/blob@0.27.3/client");
-    const blob = await upload(file.name, file, {
-      access: "public",
-      handleUploadUrl: UPLOAD_API,
-    });
-    return blob.url;
+    if (!data.url) throw new Error("アップロード応答が不正です");
+    return data.url;
   } catch (err) {
+    if (err.name === "AbortError") {
+      throw new Error("アップロードがタイムアウトしました。ファイルサイズを小さくするか、しばらく待って再試行してください。");
+    }
     if (err.message === "Failed to fetch" || err.name === "TypeError") {
       throw new Error(isLocalDev()
         ? "アップロードAPIに接続できません。python server.py でサーバーを起動してから開いてください。"
-        : "アップロードに失敗しました。Vercel Blobストアがプロジェクトに接続されているか確認してください。");
+        : "アップロードに失敗しました。Vercelの再デプロイ後にもう一度お試しください。");
     }
     throw err;
   } finally {
+    clearTimeout(timer);
     label.classList.remove("busy");
     label.textContent = prev;
   }
