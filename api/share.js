@@ -71,12 +71,13 @@ export default {
       if (!isValidConfig(cfg)) return json({ error: "設定が不正です" }, 400);
       const id = randomUUID();
       const pathname = `shares/${id}.json`;
-      const blob = await put(pathname, JSON.stringify(cfg), {
+      await put(pathname, JSON.stringify(cfg), {
         ...auth,
         access: "public",
         contentType: "application/json",
+        addRandomSuffix: false,
       });
-      return json({ id, url: blob.url });
+      return json({ id });
     } catch (error) {
       console.error("Share POST error:", error);
       return json({ error: "リンク作成に失敗しました" }, 500);
